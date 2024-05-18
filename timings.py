@@ -43,9 +43,16 @@ sig_time = {
         "338" : 6.5,
         "340" : 6.5,
         "349" : 6.5,
-    } #Since term platforms dont have
+    }, #Since term platforms dont have
     #signals (ofc) and you can continue,
     #Put other normal sigs here
+    "Westwyvern" : {
+        "377" : 5.75,
+        "477" : 5.75, #SC
+        "479" : 6.25, #EX
+        "466" : 6.25, #EX
+        "468" : 5, #SC
+    },
 
 }
 
@@ -105,7 +112,13 @@ next_time = {
     "Edgemead" : 4.75,
     "Leighton West" : 4,
     "Faymere" : 4.25,
-    "Westercoast" : 4.25
+    "Westercoast" : 5,
+    "Millcastle" : 3.5,
+    "Westwyvern" : 3.75,
+    "Starryloch" : 3,
+    "Northshore" : 6,
+    "Airport Central": 0.5,
+    "Terminal 1" : 5.5
 }
 
 def gettimen(next_station):

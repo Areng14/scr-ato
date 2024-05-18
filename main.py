@@ -5,11 +5,11 @@ print("Loading libaries...")
 #The code is below this commented area.
 #Selected train speed limit.
 #Used to calculate the target speed
-max_speed = 100
+max_speed = 90
 
 #Stations
 valid_station_names = [
-    "Airport Terminal 1", "Airport Terminal 2", "Airport Terminal 3", "Airport West",
+    "Terminal 1", "Terminal 2", "Airport Terminal 3", "Airport West", "Airport Central",
     "Angel Pass", "Ashlan Park", "Beaulieu Park", "Beechley", "Benton", "Benton Bridge",
     "Berrily", "Berrily Denton Road", "Bodin", "Cambridge Street Parkway", "City Hospital",
     "Connolly", "Coxly", "Coxly Newtown", "East Berrily", "Eden Quay", "Edgemead",
@@ -74,8 +74,6 @@ def getbar():
     crop_region = (w / 3, 0, w * 2 / 3, h)
     menubar = screenshot.crop(crop_region)
     return menubar
-
-keyboard.wait("p")
 
 class Speed:
     def __init__(self, screen_dimen, train_max):
@@ -218,30 +216,6 @@ class Speed:
         else:
             return self.last_speed
 
-print("starting")
-Speedcontroller = Speed(screen_dimen,max_speed)
-
-time.sleep(0.5)
-
-#Calibrate IF FILE DOESNT EXIST or if C held
-if not os.path.isfile(os.path.join(path,"data","time.txt")) or keyboard.is_pressed("c"):
-    print("Calibrating...")
-    fullthrottletime = Speedcontroller.calibrate()
-    with open(os.path.join(path,"data","time.txt"),"w") as file:
-        file.write(str(fullthrottletime))
-else:
-    with open(os.path.join(path,"data","time.txt"),"r") as file:
-        content =  file.read()
-    if content:
-        Speedcontroller.settime(float(content))
-    else:
-        print("Calibrating...")
-        fullthrottletime = Speedcontroller.calibrate()
-        with open(os.path.join(path,"data","time.txt"),"w") as file:
-            file.write(str(fullthrottletime))
-
-print(f"Sucesfully calibrated train. TFS: {Speedcontroller.full_acceleration_time}s")
-
 #Aquire next station
 class Info:
     def __init__(self, screen_dimen):
@@ -271,7 +245,7 @@ class Info:
         nextimg = nextimg.crop((left, upper, right, lower))
         
         nextstation_raw = pytesseract.image_to_string(nextimg, lang="eng")
-        nextstation = re.sub("[^a-zA-Z\s]", "", nextstation_raw)
+        nextstation = re.sub("[^a-zA-Z0-9\s]", "", nextstation_raw)
         self.next_station = nextstation
         return nextstation
 
@@ -412,17 +386,17 @@ lastlimt = -1
 GoA_level = 2
 
 if GoA_level == 0:
-    print("This GoA level is not supported! AWS and ATP exist in SCR.\nExiting...")
+    print("Mode: GoA0\nThis GoA level is not supported! AWS and ATP exist in SCR.\nExiting...")
     sys.exit(1)
 elif GoA_level == 1:
-    print("Manual operation. Driver controls the train.\nExiting...")
+    print("Mode: GoA1\nManual operation. Driver controls the train.\nExiting...")
     sys.exit(1)
 elif GoA_level == 2:
-    print("Semi-automated driving. Train controls starting and stopping, driver handles doors and emergencies.")
+    print("Mode: GoA2\nSemi-automated driving. Train controls starting and stopping, driver handles doors and emergencies.")
 elif GoA_level == 3:
-    print("Driverless operation. Auto Pilot mode.\nYou control doors.")
+    print("Mode: GoA3\nDriverless operation. Auto Pilot mode.\nYou control doors.")
 elif GoA_level == 4:
-    print("Full automation. Auto Pilot mode.\nDo not touch the keyboard from now.")
+    print("Mode: GoA4\nFull automation. Auto Pilot mode.\nDo not touch the keyboard from now.")
 
 nextstation = None
 lastsig = 0
@@ -432,20 +406,52 @@ def cleanup():
     print("Stopping train.")
     Speedcontroller.train_stop(True)
 
+print(f"Train max speed is: {max_speed}")
+
+keyboard.wait("p")
+print("starting")
+Speedcontroller = Speed(screen_dimen,max_speed)
+
+time.sleep(0.5)
+
+#Calibrate IF FILE DOESNT EXIST or if C held
+if not os.path.isfile(os.path.join(path,"data","time.txt")) or keyboard.is_pressed("c"):
+    print("Calibrating...")
+    fullthrottletime = Speedcontroller.calibrate()
+    with open(os.path.join(path,"data","time.txt"),"w") as file:
+        file.write(str(fullthrottletime))
+else:
+    with open(os.path.join(path,"data","time.txt"),"r") as file:
+        content =  file.read()
+    if content:
+        Speedcontroller.settime(float(content))
+    else:
+        print("Calibrating...")
+        fullthrottletime = Speedcontroller.calibrate()
+        with open(os.path.join(path,"data","time.txt"),"w") as file:
+            file.write(str(fullthrottletime))
+
+print(f"Sucesfully calibrated train. TFS: {Speedcontroller.full_acceleration_time}s")
+
 atexit.register(cleanup)
 
 while True:
-    for _ in range(100):
-        if nextstation:
-            if nextstation.replace("  "," ").replace("_","").strip().title() in valid_station_names:
-                break
-        nextstation = infoman.get_next().strip()
     if not nextstation:
-        print("Failed to read next station.")
-        nextstation = input("Type in the next station:\n")
-        while nextstation not in valid_station_names:
-            print("Not a valid statation.")
+        for x in range(100):
+            nextstation = infoman.get_next().strip()
+            if nextstation:
+                if nextstation.replace("  "," ").replace("_","").strip().title() in valid_station_names:
+                    print(nextstation)
+                    break
+            else:
+                pass
+            
+        if not nextstation:
+            print("Failed to read next station.")
             nextstation = input("Type in the next station:\n")
+            while nextstation not in valid_station_names:
+                print("Not a valid statation.")
+                nextstation = input("Type in the next station:\n")
     limit = Speedcontroller.get_speedlimit()
     #If last recorded limit is not the same update it
     signalread = signalman.getsig()
@@ -471,6 +477,7 @@ while True:
         lastsig = signalread
     #If station is within 0.25 miles. Slow down and stop.
     if infoman.getdistance() < 0.25:
+        Speedcontroller.train_stop()
         Speedcontroller.gotospeed(timings.getspeed(nextstation))
         passed = []
         while infoman.getdistance() > 0.00:
